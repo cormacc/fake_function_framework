@@ -36,11 +36,16 @@
 #include "vaiter64.h"
 #define _FFF_NAME(FN) FN##_fake
 #define _FFF_CALLS(FN) _FFF_NAME(FN).call_count
-#define _FFF_LAST_VAL(FN, IDX) _FFF_NAME(FN).arg##IDX##_val
-#define _FFF_NTH_VAL(FN, CALL_IDX, ARG_IDX) _FFF_NAME(FN).arg##ARG_IDX##_history[CALL_IDX-1]
+#define _FFF_LAST_ARG_VAL(FN, IDX) _FFF_NAME(FN).arg##IDX##_val
+#define _FFF_NTH_ARG_VAL(FN, CALL_IDX, ARG_IDX) _FFF_NAME(FN).arg##ARG_IDX##_history[CALL_IDX-1]
+
+#define _FFF_VERIFY_ARG(FN, VAL, ARG_IDX) VAL == _FFF_LAST_ARG_VAL(FN, ARG_IDX)
+#define _FFF_ASSERT_ARG(FN, VAL, ARG_IDX) TEST_ASSERT_EQUAL(VAL, _FFF_LAST_ARG_VAL(FN, ARG_IDX));
+
+#define _FFF_VERIFY_HISTORICAL_ARG(FN, CALL_IDX, VAL, ARG_IDX) (VAL == _FFF_NTH_ARG_VAL(FN, CALL_IDX, ARG_IDX))
+#define _FFF_ASSERT_HISTORICAL_ARG(FN, CALL_IDX, VAL, ARG_IDX) TEST_ASSERT_EQUAL(VAL, _FFF_NTH_ARG_VAL(FN, CALL_IDX, ARG_IDX));
 
 
-#define _FFF_VERIFY_ARG(FN, VAL, ARG_IDX) TEST_ASSERT_EQUAL(VAL, _FFF_LAST_VAL(FN, ARG_IDX));
 /**
  * Verifies that the named function was called once and only once, and optionally verifies its arguments
  * @param FN The mocked function name
@@ -48,9 +53,8 @@
  */
 #define TEST_ASSERT_CALLED(FN, ...)                  \
   TEST_ASSERT_CALLED_TIMES(1, FN);                   \
-  VA_FIX_IDX_EACH(_FFF_VERIFY_ARG, FN, __VA_ARGS__)
+  VA_FIX_IDX_EACH(_FFF_ASSERT_ARG, FN, __VA_ARGS__)
 
-#define _FFF_VERIFY_HISTORICAL_ARG_(FN, CALL_IDX, VAL, ARG_IDX) TEST_ASSERT_EQUAL(VAL, _FFF_NTH_VAL(FN, CALL_IDX, ARG_IDX));
 /**
  * Verifies that the named function at least CALL_IDX times, and optionally verifies the arguments for that call
  * @param FN The mocked function name
@@ -60,7 +64,7 @@
 #define TEST_ASSERT_NTH_CALL(FN, CALL_IDX, ...)                         \
   TEST_ASSERT_TRUE(CALL_IDX > 0);                                       \
   TEST_ASSERT_TRUE(_FFF_CALLS(FN) >= CALL_IDX);                         \
-  VA_2FIX_IDX_EACH(_FFF_VERIFY_HISTORICAL_ARG_, FN, CALL_IDX, __VA_ARGS__)
+  VA_2FIX_IDX_EACH(_FFF_ASSERT_HISTORICAL_ARG, FN, CALL_IDX, __VA_ARGS__)
 
 /**
  * Verifies that the named function was called at least once, and optionally verifies the arguments for the final call
@@ -68,6 +72,29 @@
  * @param ... Expected values of the function arguments
  */
 #define TEST_ASSERT_LAST_CALL(FN, ...) TEST_ASSERT_NTH_CALL(FN, _FFF_CALLS(FN), __VA_ARGS__)
+
+#define _FFF_AND_VERIFY_NTH_CALL_ARG(FN, CALL_IDX, VAL, ARG_IDX) && _FFF_VERIFY_HISTORICAL_ARG(FN, CALL_IDX, VAL, ARG_IDX)
+#define _FFF_VERIFY_NTH_CALL(FN, CALL_IDX, ...)                         \
+  ( (CALL_IDX > 0) && (CALL_IDX <= _FFF_CALLS(FN)) VA_2FIX_IDX_EACH(_FFF_AND_VERIFY_NTH_CALL_ARG, FN, CALL_IDX, __VA_ARGS__) )
+
+//This uses GCC compound statement expression:
+//https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
+#define _FFF_VERIFY_ANY_CALL(FN, ...) ({                          \
+  bool verified = false;                                          \
+  int call_idx = _FFF_CALLS(FN);                                  \
+  while(call_idx && !verified) {                                  \
+    verified |= _FFF_VERIFY_NTH_CALL(FN, call_idx, __VA_ARGS__);  \
+    call_idx--;                                                   \
+  }                                                               \
+  verified;                                                       \
+    })
+
+#define TEST_ASSERT_ANY_CALL(FN, ...) TEST_ASSERT_TRUE(_FFF_VERIFY_ANY_CALL(FN, __VA_ARGS__))
+
+                                                                      \
+  /* #define TEST_ASSERT_ANY_CALL(FN, ...) {                               \ */
+  /*                                                                       \ */
+  /*  } */
 
 /**
  * Verify that the named function was called COUNT times
