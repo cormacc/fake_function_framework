@@ -23,8 +23,8 @@ class FakeFunctionFramework < Plugin
     # all mocks linked into the test.
     File.open(arg_hash[:runner_file], 'a') do |f|
       f.puts
-      f.puts "//=======Defintions of FFF variables====="
-      f.puts %{#include "fff.h"}
+      f.puts "//=======Definitions of FFF variables====="
+      f.puts FffMockGenerator::FFF_INCLUDES
       f.puts "DEFINE_FFF_GLOBALS;"
     end
   end

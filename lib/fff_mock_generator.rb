@@ -45,7 +45,7 @@ class FffMockGenerator
   end
 
   def self.write_header_includes(module_name, output)
-    output.puts %{#include "fff.h"}
+    write_fff_includes(output)
     output.puts %{#include "fff_unity_helper.h"}
     output.puts %{#include "#{module_name}.h"}
   end
@@ -74,9 +74,18 @@ class FffMockGenerator
 
 # Source file generation functions.
 
+  FFF_INCLUDES = <<~'EOI'
+    #define _FFF_ASSERT_EQ_MSG(expected, actual, message) TEST_ASSERT_EQUAL_MESSAGE(expected, actual, message)
+    #include "fff.h"
+  EOI
+
+  def self.write_fff_includes(output)
+    output.puts FFF_INCLUDES
+  end
+
   def self.write_source_includes (mock_name, output)
     output.puts "#include <string.h>"
-    output.puts %{#include "fff.h"}
+    write_fff_includes(output)
     output.puts %{#include "#{mock_name}.h"}
   end
 
